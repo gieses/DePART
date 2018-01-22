@@ -23,7 +23,7 @@ sns.set_style("white")
 
 def initialize_neural_network(ini_mode="normal", optimizer="adam", 
                               loss="categorical_crossentropy",
-                              dr1=0.0, dr2=0.0, dr3=0.0):
+                              dr1=0.0, dr2=0.0, dr3=0.0, output_dim=29):
     """
     Returns the best-performing neural network model form the manuscript.
     """
@@ -35,7 +35,7 @@ def initialize_neural_network(ini_mode="normal", optimizer="adam",
     model.add(Dropout(dr2)) 
     model.add(Dense(35, kernel_initializer='normal', activation='relu'))
     model.add(Dropout(dr3)) 
-    model.add(Dense(29, kernel_initializer='normal', activation='softmax'))
+    model.add(Dense(output_dim, kernel_initializer='normal', activation='softmax'))
     # Compile model
     model.compile(loss=loss, optimizer=optimizer, 
                   metrics=['categorical_accuracy', 'accuracy'])
@@ -266,11 +266,14 @@ def cross_validation(train_df, valid_df, nkfold=5, n_jobs=5):
     print ("Overlapping Sequences:")
     print (np.intersect1d(Seqs_train_full.values, Seqs_valid_full.values))
     
+    #output dims depending on the number of fractions
+    output_dims = len(np.unique(train_df.Fraction))
+    
     #init cross-validation
     kf = cv_splitter(nkfold)
     results_store = []
     results_store.extend(Parallel(n_jobs=n_jobs)(delayed(fit_model)
-                    (initialize_neural_network(), 
+                    (initialize_neural_network(output_dim=output_dims), 
                      np.array(X_train_full.iloc[train_index]),
                      np.array(X_train_full.iloc[test_index]),
                      np_utils.to_categorical(encoder.transform(y_train_full.iloc[train_index])),
@@ -320,7 +323,10 @@ def train_validation(train_df, valid_df, epochs=100, batch_size=512, plot=False)
     encoder = LabelEncoder()
     encoder.fit(y_train_full)
 
-    nnmodel = initialize_neural_network()
+    #output dims depending on the number of fractions
+    output_dims = len(np.unique(train_df.Fraction))
+    
+    nnmodel = initialize_neural_network(output_dim=output_dims)
     print (nnmodel.summary())
     history = nnmodel.fit(np.array(X_train_full),
                           np_utils.to_categorical(encoder.transform(y_train_full)),
@@ -348,4 +354,60 @@ def train_validation(train_df, valid_df, epochs=100, batch_size=512, plot=False)
         ax1.ax_joint.plot(x, x, '-k')
     print ("Results on the validation data:")
     print (res_df)
-    return(res_df, nnmodel)
+    return(res_df, nnmodel, history)
+    
+    
+    
+def incremental_training(nnmodel, train_df, valid_df, reference_df,
+                         epochs=100, batch_size=512, size=5000):
+    """
+    This function allows to (incrementally) train a neural network model.
+    Therefore, a given nnmodel must have been already trained. Currently,
+    the incremental training only supports experiments with the same number 
+    of classes (Fractions).
+    
+    Parameters:
+    -------------------------------------
+    nnmodel: keras obj,
+              neural network model
+    train_df: df,
+                input data, NEW data set
+    valid_df: df,
+                input data, NEW data set
+    reference_df: df,
+                 oinput data, OLD data set (initially used for training)
+    epbochs, batch_size: int,
+                    neural network parameters
+    size: int,
+        number of additional training points to consider
+    """
+    #format the dtaframe for ML 
+    X_train_full, Seqs_train_full, y_train_full = process_df(train_df[train_df["Fraction"] < 30])
+    X_valid_full, Seqs_valid_full, y_valid_full = process_df(valid_df[valid_df["Fraction"] < 30])
+    ref_X_train_full, ref_Seqs_train_full, ref_y_train_full = process_df(reference_df)
+    sample_idx = X_train_full.sample(size).index
+    
+    # encode class values as integers
+    encoder = LabelEncoder()
+    encoder.fit(ref_y_train_full)
+    
+    nnmodel.fit(np.array(X_train_full.loc[sample_idx]), 
+            np_utils.to_categorical(encoder.transform(y_train_full.loc[sample_idx])), 
+            epochs=epochs, batch_size=batch_size)
+    
+    #predict
+    yhat_train = nnmodel.predict(np.array(X_train_full.loc[sample_idx]))
+    yhat_test = nnmodel.predict(np.array(X_valid_full))
+    
+    #to encoder level, class label
+    yhat_train = yhat_train.argmax(axis=1) + 1
+    yhat_test = yhat_test.argmax(axis=1) + 1
+    
+    #evaluate
+    #evaluate
+    res_train = eval_predictions_complex(y_train_full.loc[sample_idx], yhat_train, "Incremental_Train")
+    res_test = eval_predictions_complex(y_valid_full, yhat_test, "Incremental_Test")
+    res_df = pd.DataFrame([res_train, res_test])  
+    res_df.columns = eval_predictions_complex(None, None, None, True)    
+    return(nnmodel, res_df)
+    

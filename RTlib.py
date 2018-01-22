@@ -616,8 +616,11 @@ class ModelMatrix():
         """
         df_model_initial = self.modelmatrix.copy()
         df_model = self.modelmatrix
+        min_frac = df_model.Fraction.min()
+        max_frac = df_model.Fraction.max() + 1
         print ("NRows BEFORE min obs filter: {}".format(df_model.shape[0]))
-        obs = {i:j for i,j in zip(np.arange(1, 35), np.bincount(df_model.Fraction)[1:])}
+        obs = {i:j for i,j in zip(np.arange(min_frac, max_frac), 
+                                  np.bincount(df_model.Fraction)[1:])}
         df_model["nobs"] = [obs[i] for i in df_model.Fraction]
         df_model = df_model[df_model["nobs"] >=min_obs]
         print ("NRows AFTER min obs filter: {}".format(df_model.shape[0]))
