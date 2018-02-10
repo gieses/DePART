@@ -25,9 +25,9 @@ matrix, all_data, train_df, valid_df = \
                                          correct=True, scale=False, 
                                          from_CSV=False, min_obs=300)
                 
-#use the training dataframe for CV
-CV_results = ML.cross_validation(train_df, valid_df, nkfold=5, n_jobs=5)
-
-#train the classifier on the complete data
-val_results, nnmodel = ML.train_validation(train_df, valid_df, epochs=100, 
-                                           batch_size=512, plot=True)
+##use the training dataframe for CV
+#CV_results = ML.cross_validation(train_df, valid_df, nkfold=5, n_jobs=5)
+#
+##train the classifier on the complete data
+#val_results, nnmodel = ML.train_validation(train_df, valid_df, epochs=100, 
+#                                           batch_size=512, plot=True)
