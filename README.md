@@ -30,12 +30,6 @@ Dependencies
  files as long as the "Sequence" and "Fraction" column are there. For this
  set the 'from_CSV' option to True.
  
- Notes
- ----
- Changing the architecture and the parameters of neural network can be done
- by editing the RTMLlib. A few parameters can be changed by the function call,
- e.g. the activation function (swish is also supported).
- 
 ```
 import RTlib as RT
 import RTMLlib as ML
@@ -64,7 +58,12 @@ CV_results = ML.cross_validation(train_df, valid_df, nkfold=5, n_jobs=5)
 val_results, nnmodel = ML.train_validation(train_df, valid_df, epochs=100, 
                                            batch_size=512, plot=True)
 ```
-
+ Notes
+ ----
+ Changing the architecture and the parameters of neural network can be done
+ by editing the RTMLlib. A few parameters can be changed by the function call,
+ e.g. the activation function (swish is also supported).
+ 
 
 Authors
 ----
