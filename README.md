@@ -30,6 +30,12 @@ Dependencies
  files as long as the "Sequence" and "Fraction" column are there. For this
  set the 'from_CSV' option to True.
  
+ Notes
+ ----
+ Changing the architecture and the parameters of neural network can be done
+ by editing the RTMLlib. A few parameters can be changed by the function call,
+ e.g. the activation function (swish is also supported).
+ 
 ```
 import RTlib as RT
 import RTMLlib as ML
