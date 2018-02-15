@@ -10,20 +10,25 @@ import RTMLlib as ML
 
 #this is an input file, e.g. from an maxquant evidence file
 infile = "sample_data/evidence_SAX_Trost.txt"
+infile = "data/evidence_SAX_reduced.txt"
 
 #specify the outpath here
-outpath = "sample_data/"
+outpath = "data/"
 
 #this is used as prefix for the results
-name = "Test"
+name = "Trost"
 
 #process the data and prepare the given evidence /csv file
 # sequence -> feature matrix
 matrix, all_data, train_df, valid_df = \
-                RT.preprocess_manuscript(infile, outpath, name, n_test=-1, 
-                                         mods=False, target="Fraction", 
-                                         correct=True, scale=False, 
-                                         from_CSV=False, min_obs=300)
+                RT.preprocess_manuscript(infile, outpath, name, 
+                                         n_test=2000, 
+                                         mods=False, 
+                                         target="Fraction", 
+                                         correct=True, 
+                                         scale=False, 
+                                         from_CSV=False, 
+                                         min_obs=1)
                 
 ##use the training dataframe for CV
 #CV_results = ML.cross_validation(train_df, valid_df, nkfold=5, n_jobs=5)

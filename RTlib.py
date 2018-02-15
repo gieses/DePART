@@ -56,7 +56,7 @@ class ModelMatrix():
         else:
             print ("Couldn't set X and y since the model matrix was not set.")
             
-    def from_column(self, sequences, dummy_fraction=True):
+    def from_column(self, sequences, dummy_fraction=False):
         """
         Creates a model matrix from a Sequence column.
         
@@ -102,7 +102,7 @@ class ModelMatrix():
         self.modelmatrix = df_data
         
 
-    def from_evidence(self, remove_mods=True):
+    def from_evidence(self, remove_mods=True, n_test=None):
         """
         The MaxQuant evidence file is where the raw data comes from. The
         from evidence function automatically removes contaminants and
@@ -127,7 +127,7 @@ class ModelMatrix():
                     'Unmodified' (default). 
         """
         summary = []
-        df_evidence = pd.read_csv(self.loc, sep="\t")
+        df_evidence = pd.read_csv(self.loc, sep="\t", nrows=n_test)
         colnames = df_evidence.columns
         summary.append("Evidence Input: {}".format(df_evidence.shape))
         
@@ -156,11 +156,16 @@ class ModelMatrix():
         df_evidence_maxInt = df_evidence[df_evidence["Fraction.Filter"]==True]
                 
         #selection of columns to keep
+        
         xcolumns = ["Sequence", "Length", "Modifications", "Modified sequence",
                     "Fraction", "Retention time", "Charge", "Mass", 
-                    "Intensity", "Peptide ID", "Score"]
-            
-        df_evidence_maxInt = df_evidence_maxInt[xcolumns]
+                    "Intensity", "Peptide ID", "Score", "Proteins"]
+        
+        try:
+            df_evidence_maxInt = df_evidence_maxInt[xcolumns]
+        except KeyError as e:
+            print (e)
+            raise
         df_evidence_maxInt = df_evidence_maxInt.sort_values(by="Fraction")
         summary.append("- intensity/adjacent filter: {}\
                        ".format(df_evidence_maxInt.shape[0]))
@@ -403,12 +408,13 @@ class ModelMatrix():
         
         try:
             self.modelmatrix = pd.concat([df[["loglength", "netcharge", "nterm", 
-                                              "cterm", "Sequence", "Fraction", "Score"]],
+                                              "cterm", "Sequence", "Fraction", "Score", "Proteins"]],
                                           minimal_df], axis=1)
         except KeyError:
             self.modelmatrix = pd.concat([df[["loglength", "netcharge", "nterm", 
                                               "cterm", "Sequence", "Fraction"]],
-                                                      minimal_df], axis=1)            
+                                                      minimal_df], axis=1)  
+            print ("Using only default columns")
             
     def add_patches(self, aromatic=True, acidic=True, basic=True, mixed=True, 
                     counts_only=False, verbose=1):
@@ -899,7 +905,7 @@ def get_uniquie_mods(df):
      return(mod_df)
      
 #%% convenience function
-def preprocess_manuscript(infile, outpath, name, n_test=-1, mods=1, target="Fraction",
+def preprocess_manuscript(infile, outpath, name, n_test=None, mods=1, target="Fraction",
             correct=True, scale=True, from_CSV=False, add_poly=False, min_obs=300):
     """
     To function to process data files accordin to the published manuscript.
@@ -968,7 +974,7 @@ def preprocess_manuscript(infile, outpath, name, n_test=-1, mods=1, target="Frac
     if from_CSV:
         matrix.from_csv()
     else:
-        matrix.from_evidence()
+        matrix.from_evidence(n_test=n_test)
         #get mods 
         if "Modifications" in matrix.modelmatrix:
             mods_df = get_uniquie_mods(matrix.modelmatrix)
@@ -1017,6 +1023,7 @@ def preprocess_manuscript(infile, outpath, name, n_test=-1, mods=1, target="Frac
     except KeyError:
         pass
     
+    print ("Splitting data...")
     train_df, val_df = np.split(df_model.sample(frac=1, random_state=42), [int(.75*len(df_model))])
         
     print ("Storing...")
