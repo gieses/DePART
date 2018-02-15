@@ -22,7 +22,7 @@ name = "Trost"
 # sequence -> feature matrix
 matrix, all_data, train_df, valid_df = \
                 RT.preprocess_manuscript(infile, outpath, name, 
-                                         n_test=2000, 
+                                         n_test=None, 
                                          mods=False, 
                                          target="Fraction", 
                                          correct=True, 
