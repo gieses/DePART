@@ -1,13 +1,14 @@
-# DeepRThSAX
+# DePART - Deep Learning for Predicting Anion Exchange Chromatography Retention Times.
 
-DeepRThSAX is a high-level python package for retention time prediction in hydrophilic strong anion exchange chromatography (hSAX). DeepRThSAX uses several packages for the pre-processing of (MaxQuant) peptide tables and the final machine learning prediction (custom format peptide tables are also supported).There are convenience functions implemented to use the same preprocessing as used in the manuscript (*in preparation*) within a single function call.
-The core function of DeepRThSAX is the training & prediction of the 'elution time' peptides from hSAX fractionation. Elution time is in our workflow exchangeable with the fraction from an off-line fractionation experiment.
+DePART is a high-level python package for retention time prediction in hydrophilic strong anion exchange chromatography (hSAX). DePART uses several packages for the pre-processing of (MaxQuant) peptide tables and the final machine learning prediction (custom format peptide tables are also supported).There are convenience functions implemented to use the same preprocessing as used in the manuscript (*in preparation*) within a single function call.
+The core function of DePART is the training & prediction of the 'elution time' of peptides from hSAX prepfractionation. Elution time is in our workflow exchangeable with the fraction from an prefractionation experiment, e.g. a discrete number.
+
 
 
 Getting Started
 ---
 
-DeepRThSAX requires the installation of the following packages and ideally python 3.5.
+DePART requires the installation of the following packages and ideally python 3.5.
 
 Dependencies
 ---
