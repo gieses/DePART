@@ -1,0 +1,7 @@
+# Include the license file
+include *.txt
+include *.md
+
+# Include the data files
+#recursive-include data *
+global-exclude *.py[co]

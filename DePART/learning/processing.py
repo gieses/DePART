@@ -1,55 +1,34 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Dec  7 11:14:40 2017
+Created on Fri Mar 30 21:06:31 2018
 
-@author: sgiese
+@author: hanjo
 """
+#cross imports
+from DePART.learning import models
+
+
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
-from pyteomics import achrom
-import pandas as pd
 from sklearn.metrics import mean_absolute_error, auc, mean_squared_error, r2_score, f1_score, accuracy_score
+from sklearn.preprocessing import LabelEncoder
+
+from keras.utils import np_utils
+from keras.utils.generic_utils import get_custom_objects
+from keras import backend as K
+
+import pandas as pd
 import numpy as np
 from scipy import stats
-from sklearn.preprocessing import LabelEncoder
-from joblib import Parallel, delayed
-from keras.models import Sequential, Model 
-from keras.layers import Dense, Dropout
-from keras.utils import np_utils
 import seaborn as sns
-sns.set_style("white")
-import copy
-from keras import backend as K
-#from keras.layers import Activation
-from keras.utils.generic_utils import get_custom_objects
+from pyteomics import achrom
+from joblib import Parallel, delayed
+
 
 def swish(x):
     return (K.sigmoid(x) * x)
 
 get_custom_objects().update({'swish': swish})
-
-
-def initialize_neural_network(ini_mode="normal", optimizer="adam", 
-                              loss="categorical_crossentropy", 
-                              act=["relu", "tanh", "relu"],
-                              dr1=0.0, dr2=0.0, dr3=0.0, output_dim=29):
-    """
-    Returns the best-performing neural network model from the manuscript.
-    """
-    model = Sequential()
-    model.add(Dense(50, input_dim=218, kernel_initializer=ini_mode, 
-                    activation=act[0]))
-    model.add(Dropout(dr1)) 
-    model.add(Dense(40, kernel_initializer='normal', activation=act[1]))
-    model.add(Dropout(dr2)) 
-    model.add(Dense(35, kernel_initializer='normal', activation=act[2]))
-    model.add(Dropout(dr3)) 
-    model.add(Dense(output_dim, kernel_initializer='normal', activation='softmax'))
-    # Compile model
-    model.compile(loss=loss, optimizer=optimizer, 
-                  metrics=['categorical_accuracy', 'accuracy'])
-    return(model)
 
 
 def eval_predictions_complex(y_test, y_pred, name, get_metrics=False):
@@ -129,10 +108,9 @@ def cv_splitter(split=5):
 
 
 def fit_model(clf, traindf, testdf, trainy, testy, name, epochs=100,
-              batch_size=512, nomod=True, return_pred=False, scale=False):
+              batch_size=512, return_pred=False, scale=False):
     """
     Generic function that fits a model and retrieves the error rates.
-    Needs SKlearn api?
     
     Parameters:
     --------------------------
@@ -185,38 +163,16 @@ def fit_model(clf, traindf, testdf, trainy, testy, name, epochs=100,
         traindf = scaler.transform(traindf)
         testdf = scaler.transform(testdf)
         
-    print ("Fitting {}".format(name))
-    if name !="Pyteomics":            
-        #train 
-        if name =="Keras":
-            clf.fit(traindf, trainy, epochs=epochs, batch_size=batch_size)
-        else:
-            clf.fit(traindf, trainy)
-
-        #predict
-        yhat_train = clf.predict(traindf)
-        yhat_test = clf.predict(testdf)
-        
-                
-    else:   
-        #pyteomics
-        clf = achrom.get_RCs_vary_lcp([str(i).replace("U", "C") 
-                                                    for i in traindf], trainy)
-        print ("Pyteomics LCP: {}".format(clf["lcp"]))
-        yhat_train = [achrom.calculate_RT(i, clf, raise_no_mod=nomod) for i in 
-                      traindf]
-        yhat_test = [achrom.calculate_RT(i, clf, raise_no_mod=nomod) for i in 
-                     testdf]
-      
-    if name in {"Keras"}:
-        #truth, decode again to single fraction / prediction instead of
-        #probabilities
-        yhat_train = yhat_train.argmax(axis=1)
-        yhat_test = yhat_test.argmax(axis=1)
-        
-        trainy = trainy.argmax(axis=1)
-        testy = testy.argmax(axis=1)
-        
+    #train 
+    clf.fit(traindf, trainy, epochs=epochs, batch_size=batch_size)
+    
+    #predict
+    yhat_train = clf.predict(traindf).argmax(axis=1)
+    yhat_test = clf.predict(testdf).argmax(axis=1)
+    
+    trainy = trainy.argmax(axis=1)
+    testy = testy.argmax(axis=1)
+            
     #evaluate
     res_train = eval_predictions_complex(trainy, yhat_train, name+"_Train")
     res_test = eval_predictions_complex(testy, yhat_test, name+"_Test")
@@ -243,6 +199,12 @@ def process_df(ml_df):
     seqs = tmp_df.Sequence
     fractions = tmp_df.Fraction
     
+    if "PyteomicsSequence" in tmp_df.columns:
+        del tmp_df["PyteomicsSequence"]
+        
+    if "Modified sequence" in tmp_df.columns:
+        del tmp_df["PyteomicsSequence"]
+        
     if "Sequence" in tmp_df.columns:
         del tmp_df["Sequence"]
         
@@ -255,10 +217,13 @@ def process_df(ml_df):
     return(tmp_df, seqs, fractions)
     
     
-def cross_validation(train_df, valid_df, nkfold=5, n_jobs=5, nn_args={}):
+def cross_validation(train_df, valid_df, name="", nkfold=5, n_jobs=5, nn_args={},
+                     use_joblib=True, epochs=100, batch_size=512):
     """
     Function for cross-validation on the training data and evaluation 
-    on the hold-out set.
+    on the hold-out set. It stores the predictions and computes more than
+    the usual error metrics. For short evaluations use the build in keras
+    cv function.
     
     Parameters:
     --------------------------
@@ -291,36 +256,52 @@ def cross_validation(train_df, valid_df, nkfold=5, n_jobs=5, nn_args={}):
     
     #output dims depending on the number of fractions
     output_dims = len(np.unique(train_df.Fraction))
+    input_dims = X_train_full.shape[1]
     
     #init cross-validation
     kf = cv_splitter(nkfold)
     results_store = []
-    results_store.extend(Parallel(n_jobs=n_jobs)(delayed(fit_model)
-                    (initialize_neural_network(output_dim=output_dims, **nn_args), 
-                     np.array(X_train_full.iloc[train_index]),
-                     np.array(X_train_full.iloc[test_index]),
-                     np_utils.to_categorical(encoder.transform(y_train_full.iloc[train_index])),
-                     np_utils.to_categorical(encoder.transform(y_train_full.iloc[test_index])),
-                     "Keras") for train_index, test_index in kf.split(X_train_full)))
-    
-    
+    if use_joblib:
+        results_store.extend(Parallel(n_jobs=n_jobs)(delayed(fit_model)
+                        (models.SAX_Model(output_dim=output_dims, 
+                                          input_dim=input_dims,
+                                          **nn_args), 
+                         np.array(X_train_full.iloc[train_index]),
+                         np.array(X_train_full.iloc[test_index]),
+                         np_utils.to_categorical(encoder.transform(y_train_full.iloc[train_index])),
+                         np_utils.to_categorical(encoder.transform(y_train_full.iloc[test_index])),
+                         name) for train_index, test_index in kf.split(X_train_full)))
+    else:
+        for train_index, test_index in kf.split(X_train_full):
+            #prep data
+            tmp_train = np.array(X_train_full.iloc[train_index])
+            tmp_test = np.array(X_train_full.iloc[test_index])
+            
+            tmp_ytrain = np_utils.to_categorical(encoder.transform(
+                    y_train_full.iloc[train_index]))
+            tmp_ytest = np_utils.to_categorical(encoder.transform(
+                    y_train_full.iloc[test_index]))
+            
+            tmp_model = models.SAX_Model(output_dim=output_dims, 
+                                         input_dim=input_dims, **nn_args)
+                       
+            results_store.append(fit_model(tmp_model, tmp_train, tmp_test,
+                                           tmp_ytrain, tmp_ytest, name,
+                                           epochs=epochs, batch_size=batch_size))
+                         
+                         
     classifier, res_ar = zip(*results_store)
     eval_df = pd.concat(res_ar)
     eval_df["Classifier"] = [i.split("_")[0] for i in eval_df["Method"]]
     eval_df = eval_df.groupby("Method").aggregate([np.mean, stats.sem])
     eval_df["data"] = [i.split("_")[1] for i in eval_df.index]
-    min_columns = ['0-off-pred', '1-off-pred', '2-off-pred', '3-off-pred', '5-off-pred', 'Correlation']
-    min_df = eval_df[min_columns].copy()
     eval_df["min_acc"] = eval_df["0-off-pred"]["mean"] - eval_df["0-off-pred"]["sem"]
     eval_df["max_acc"] = eval_df["0-off-pred"]["mean"] + eval_df["0-off-pred"]["sem"]
     eval_df["diff"] = eval_df["max_acc"] -  eval_df["min_acc"]
     eval_df = eval_df.round(3)    
-    
-    print ("Cross-Validation Results")
-    print (min_df)
     return(eval_df)
     
-
+    
 def train_validation(train_df, valid_df, epochs=100, batch_size=512, plot=False,
                      nn_args={}):
     """
@@ -349,12 +330,14 @@ def train_validation(train_df, valid_df, epochs=100, batch_size=512, plot=False,
 
     #output dims depending on the number of fractions
     output_dims = len(np.unique(train_df.Fraction))
+    input_dims = X_train_full.shape[1]
     
-    nnmodel = initialize_neural_network(output_dim=output_dims, **nn_args)
+    nnmodel = models.SAX_Model(output_dim=output_dims, 
+                               input_dim=input_dims, **nn_args)
     print (nnmodel.summary())
     history = nnmodel.fit(np.array(X_train_full),
                           np_utils.to_categorical(encoder.transform(y_train_full)),
-                          epochs=100, batch_size=512)
+                          epochs=epochs, batch_size=batch_size)
     
     #fit the model to the complete training data
     yhat_train_prob = nnmodel.predict(np.array(X_train_full))
@@ -380,6 +363,20 @@ def train_validation(train_df, valid_df, epochs=100, batch_size=512, plot=False,
     print (res_df)
     return(res_df, nnmodel, history)
     
-    
 
+ 
+def pyteomcis_snippets(traindf, trainy, testdf, nomod=True):
+    """
+    """
+    #pyteomics
+    clf = achrom.get_RCs_vary_lcp([str(i).replace("U", "C") 
+                                                for i in traindf], trainy)
+    print ("Pyteomics LCP: {}".format(clf["lcp"]))
+    yhat_train = [achrom.calculate_RT(i, clf, raise_no_mod=nomod) for i in 
+                  traindf]
+    yhat_test = [achrom.calculate_RT(i, clf, raise_no_mod=nomod) for i in 
+                 testdf]
+    return(yhat_train, yhat_test)
+    
+    
     

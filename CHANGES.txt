@@ -1,0 +1,2 @@
+1.1, 03.04.2018 -- Added full support for modifications and regression on RP-LC.
+1.0, 15.01.2018 -- Initial release. Featuring the implementation used in the analytical chemistry paper.
