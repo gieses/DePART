@@ -53,8 +53,8 @@ def depart(train_loc, pred_loc, reader="MaxQuant", min_obs=1,
     
     #only prep train data if needed
 
-    meta_train, full_train, features_train = PF.preprocess_df(train_loc, min_obs=min_obs)
-    meta_pred, full_pred, features_pred = PF.preprocess_df(pred_loc, min_obs=min_obs)    
+    meta_train, full_train, features_train = PF.preprocess_df(train_loc, min_obs=min_obs,reader=reader)
+    meta_pred, full_pred, features_pred = PF.preprocess_df(pred_loc, min_obs=min_obs,reader=reader)    
     
     #select y column                
     if chrom.lower() == "regression":
