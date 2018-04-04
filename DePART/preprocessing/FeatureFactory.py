@@ -57,7 +57,7 @@ class FeatureGenerator():
         ff_df["sheet"] = ff_df["Sequence"].apply(get_structure_perc, args=["sheet"])
         ff_df["pi"] = ff_df["Sequence"].apply(get_pi)
         ff_df["aromaticity"] = ff_df["Sequence"].apply(get_aromaticity)
-        ff_df["weight"] = np.sqrt(ff_df["Sequence"].apply(get_weight))
+        #ff_df["weight"] = np.sqrt(ff_df["Sequence"].apply(get_weight))
         #ff_df["flexibility"] = df["Sequence"].apply(FF.get_flexibility)
         #%%
         #attention here we should use the modified sequences

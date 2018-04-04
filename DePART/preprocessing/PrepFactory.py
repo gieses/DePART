@@ -45,9 +45,13 @@ def preprocess_df(infile, reader="MaxQuant", min_obs=300):
                  MaxQuant or CSV.".format(reader))
     #process training data    
     #select most intense
-    df_filter = filter_low_int_ids(df_evidence)
+    if "Intensity" in df_evidence.columns:
+        df_filter = filter_low_int_ids(df_evidence)
+    else:
+        df_filter = df_evidence.copy()
     #minimum obs filter per fraction
-    df_filter = filter_obs(df_filter, min_obs=min_obs)    
+    if min_obs > 0:
+        df_filter = filter_obs(df_filter, min_obs=min_obs)    
     #get a minimal df for processing
     df_meta, df = to_minimal_df(df_filter)    
     #generate features
@@ -197,6 +201,10 @@ def extract_modifications(sequences, verbose=False):
     prob_sequences = sequences[np.where(test_val>0)]
     #replace all kind of brackets
     prob_sequences = pd.Series([remove_brackets(seqi) for seqi in prob_sequences])
+    
+    if len(prob_sequences) == 0:
+        print("There were no modifications found in your data.")
+        return({}, None)
 
     for probi in prob_sequences:      
         #other mods
