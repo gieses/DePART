@@ -157,7 +157,7 @@ def FNN_Classifier(ini_mode="normal", optimizer="adam",
 def FNN_Regressor(ini_mode="normal", optimizer="adam", 
                   loss="mse", 
                   act=["relu", "tanh", "relu"],
-                  dropout=[0.0, 0.0, 0.0], input_dim=218):
+                  dropout=[0.0, 0.0, 0.0], input_dim=218, output_dim=1):
     """
     Returns the best-performing neural network model from the manuscript.
     """
