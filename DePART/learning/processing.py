@@ -23,7 +23,7 @@ from scipy import stats
 import seaborn as sns
 from pyteomics import achrom
 from joblib import Parallel, delayed
-
+import seaborn as sns
 
 def swish(x):
     return (K.sigmoid(x) * x)
@@ -109,7 +109,7 @@ def cv_splitter(split=5):
 
 def fit_model(clf, traindf, testdf, trainy, testy, name, epochs=100,
               batch_size=512, return_pred=False, scale=False,
-              regression=False):
+              regression=False, diagnostics=True):
     """
     Generic function that fits a model and retrieves the error rates.
     
@@ -184,6 +184,11 @@ def fit_model(clf, traindf, testdf, trainy, testy, name, epochs=100,
     res_test = eval_predictions_complex(testy, yhat_test, name+"_Test")
     res_df = pd.DataFrame([res_train, res_test])  
     res_df.columns = eval_predictions_complex(None, None, None, True)
+    
+    if diagnostics:
+        sns.jointplot(trainy, yhat_train)
+        sns.jointplot(testy, yhat_test)
+                
     if return_pred:
         return(clf, res_df, yhat_train, yhat_test)
     else:

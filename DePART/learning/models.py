@@ -12,7 +12,8 @@ from keras.models import Sequential
 from sklearn.preprocessing import LabelEncoder
 import numpy as np
 from keras.models import load_model
-#
+from keras import regularizers, optimizers
+
 # not really necessary and probably more confusing since the
 # sklearn API would be broken. Instead provide an example.
 #class DePART_Regressor():
@@ -154,24 +155,29 @@ def FNN_Classifier(ini_mode="normal", optimizer="adam",
     return(model)
     
     
-def FNN_Regressor(ini_mode="normal", optimizer="adam", 
-                  loss="mse", 
-                  act=["relu", "tanh", "relu"],
-                  dropout=[0.0, 0.0, 0.0], input_dim=218, output_dim=1):
+def FNN_Regressor(ini_mode="normal", loss="mse", act=["relu", "tanh", "relu"],
+                  dropout=[0.0, 0.0, 0.0], input_dim=218, output_dim=1,
+                  lr=0.001, neurons=[50, 40, 35]):
     """
     Returns the best-performing neural network model from the manuscript.
     """
     model = Sequential()
-    model.add(Dense(50, input_dim=input_dim, kernel_initializer=ini_mode, 
+    model.add(Dense(neurons[0], input_dim=input_dim, kernel_initializer=ini_mode, 
                     activation=act[0]))
+    
     model.add(Dropout(dropout[0])) 
-    model.add(Dense(40, kernel_initializer='normal', activation=act[1]))
+    model.add(Dense(neurons[1], kernel_initializer='normal', activation=act[1]))
+    
     model.add(Dropout(dropout[1])) 
-    model.add(Dense(35, kernel_initializer='normal', activation=act[2]))
+    model.add(Dense(neurons[2], kernel_initializer='normal', activation=act[2]))
+    
+    #output layer
     model.add(Dropout(dropout[2])) 
     model.add(Dense(1, kernel_initializer='normal', activation='relu'))
     # Compile model
+    optimizer =  optimizers.Adam(lr=lr)
     model.compile(loss=loss, optimizer=optimizer, metrics=['mse'])
+    #kernel_regularizer=regularizers.l2(0.01)
     return(model)
     
     

@@ -152,11 +152,10 @@ def depart(train_loc, pred_loc, reader="MaxQuant", min_obs=1,
             model_cv = LM.FNN_Regressor
         elif chrom.lower() == "hsax":
             model_cv = LM.SAX_Model
-            
-        use_joblib=False
-        train_df, valid_df = np.split(features_train.sample(frac=1, random_state=42), 
-                              [int(.75*len(features_train))])
-        CV_res = LP.cross_validation(train_df, valid_df, name="FNN", nkfold=nfolds, 
+        
+        #fixme
+        use_joblib = False
+        CV_res = LP.cross_validation(features_train, None, name="FNN", nkfold=nfolds, 
                                      n_jobs=5, use_joblib=use_joblib, epochs=epochs, 
                                      batch_size=batch_size, verbose=verbose,
                                      model=model_cv, loss=loss)

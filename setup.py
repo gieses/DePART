@@ -23,7 +23,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='DePART',
-    version='1.1',
+    version='1.2',
     author='Sven H. Giese',
     author_email='sven.giese88@gmail.com',
     packages=['DePART', 
