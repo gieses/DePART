@@ -7,7 +7,7 @@ Created on Wed Mar 28 23:46:34 2018
 import pandas as pd
 
 
-def CSV_Reader(infile,seq_column, frac_column, sep=","):
+def CSV_Reader(infile,seq_column="Sequence", frac_column="Fraction", sep=","):
     """
     Reads a CSV file into the needed format.
     

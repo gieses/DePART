@@ -23,7 +23,7 @@ from scipy import stats
 import seaborn as sns
 from pyteomics import achrom
 from joblib import Parallel, delayed
-
+import seaborn as sns
 
 def swish(x):
     return (K.sigmoid(x) * x)
@@ -108,7 +108,8 @@ def cv_splitter(split=5):
 
 
 def fit_model(clf, traindf, testdf, trainy, testy, name, epochs=100,
-              batch_size=512, return_pred=False, scale=False):
+              batch_size=512, return_pred=False, scale=False,
+              regression=False, diagnostics=True):
     """
     Generic function that fits a model and retrieves the error rates.
     
@@ -164,20 +165,30 @@ def fit_model(clf, traindf, testdf, trainy, testy, name, epochs=100,
         testdf = scaler.transform(testdf)
         
     #train 
-    clf.fit(traindf, trainy, epochs=epochs, batch_size=batch_size)
+    clf.fit(traindf, trainy, epochs=epochs, batch_size=batch_size, verbose=0)
     
     #predict
-    yhat_train = clf.predict(traindf).argmax(axis=1)
-    yhat_test = clf.predict(testdf).argmax(axis=1)
-    
-    trainy = trainy.argmax(axis=1)
-    testy = testy.argmax(axis=1)
-            
+    if not regression:
+        yhat_train = clf.predict(traindf).argmax(axis=1)
+        yhat_test = clf.predict(testdf).argmax(axis=1)
+        
+        trainy = trainy.argmax(axis=1)
+        testy = testy.argmax(axis=1)        
+    else:
+        yhat_train = np.ravel(clf.predict(traindf))
+        yhat_test = np.ravel(clf.predict(testdf))
+        
+
     #evaluate
     res_train = eval_predictions_complex(trainy, yhat_train, name+"_Train")
     res_test = eval_predictions_complex(testy, yhat_test, name+"_Test")
     res_df = pd.DataFrame([res_train, res_test])  
     res_df.columns = eval_predictions_complex(None, None, None, True)
+    
+    if diagnostics:
+        sns.jointplot(trainy, yhat_train)
+        sns.jointplot(testy, yhat_test)
+                
     if return_pred:
         return(clf, res_df, yhat_train, yhat_test)
     else:
@@ -216,9 +227,10 @@ def process_df(ml_df):
         
     return(tmp_df, seqs, fractions)
     
-    
+        
 def cross_validation(train_df, valid_df, name="", nkfold=5, n_jobs=5, nn_args={},
-                     use_joblib=True, epochs=100, batch_size=512):
+                     use_joblib=True, epochs=100, batch_size=512, verbose=False,
+                     model=models.SAX_Model, loss="categorical_accuracy"):
     """
     Function for cross-validation on the training data and evaluation 
     on the hold-out set. It stores the predictions and computes more than
@@ -238,22 +250,29 @@ def cross_validation(train_df, valid_df, name="", nkfold=5, n_jobs=5, nn_args={}
     nn_args: dict,
             keywrd arguments for the neural network init
     """
+    def identity(x):
+        return(x)
+    
     print ("Training Size: {}".format(train_df.shape))
-    print ("Validation Size: {}".format(valid_df.shape))
 
     #format the dtaframe for ML 
     X_train_full, Seqs_train_full, y_train_full = process_df(train_df)
-    X_valid_full, Seqs_valid_full, y_valid_full = process_df(valid_df)
     
-    # encode class values as integers
-    encoder = LabelEncoder()
-    encoder.fit(y_train_full)
+    if loss == "categorical_accuracy":
+        # encode class values as integers
+        encoder = LabelEncoder()
+        encoder.fit(y_train_full)
+        encoded_y = pd.DataFrame(np_utils.to_categorical(encoder.transform(y_train_full)))
+        encoded_y.index = y_train_full.index
+        regression=False
+        output_dims = len(np.unique(train_df.Fraction))
+    else:
+        #regression
+        #identiy encoder
+        encoded_y = y_train_full
+        regression = True
+        output_dims = 1
         
-    print ("Overlapping indices:")
-    print (np.intersect1d(X_train_full.index.tolist(), X_valid_full.index.tolist()))
-    print ("Overlapping Sequences:")
-    print (np.intersect1d(Seqs_train_full.values, Seqs_valid_full.values))
-    
     #output dims depending on the number of fractions
     output_dims = len(np.unique(train_df.Fraction))
     input_dims = X_train_full.shape[1]
@@ -263,31 +282,32 @@ def cross_validation(train_df, valid_df, name="", nkfold=5, n_jobs=5, nn_args={}
     results_store = []
     if use_joblib:
         results_store.extend(Parallel(n_jobs=n_jobs)(delayed(fit_model)
-                        (models.SAX_Model(output_dim=output_dims, 
-                                          input_dim=input_dims,
-                                          **nn_args), 
+                        (model(output_dim=output_dims, input_dim=input_dims,
+                               loss=loss, **nn_args), 
                          np.array(X_train_full.iloc[train_index]),
                          np.array(X_train_full.iloc[test_index]),
-                         np_utils.to_categorical(encoder.transform(y_train_full.iloc[train_index])),
-                         np_utils.to_categorical(encoder.transform(y_train_full.iloc[test_index])),
-                         name) for train_index, test_index in kf.split(X_train_full)))
+                         np.array(encoded_y.iloc[train_index]),
+                         np.array(encoded_y.iloc[test_index]),
+                         name,
+                         regression=regression) for train_index, test_index in kf.split(X_train_full)))
     else:
         for train_index, test_index in kf.split(X_train_full):
             #prep data
             tmp_train = np.array(X_train_full.iloc[train_index])
             tmp_test = np.array(X_train_full.iloc[test_index])
             
-            tmp_ytrain = np_utils.to_categorical(encoder.transform(
-                    y_train_full.iloc[train_index]))
-            tmp_ytest = np_utils.to_categorical(encoder.transform(
-                    y_train_full.iloc[test_index]))
+            #ydata
+            tmp_ytrain = np.array(encoded_y.iloc[train_index])
+            tmp_ytest = np.array(encoded_y.iloc[test_index])
             
-            tmp_model = models.SAX_Model(output_dim=output_dims, 
-                                         input_dim=input_dims, **nn_args)
+            tmp_model = model(output_dim=output_dims, input_dim=input_dims, 
+                              loss=loss, *nn_args)
                        
             results_store.append(fit_model(tmp_model, tmp_train, tmp_test,
                                            tmp_ytrain, tmp_ytest, name,
-                                           epochs=epochs, batch_size=batch_size))
+                                           epochs=epochs, 
+                                           regression=regression,
+                                           batch_size=batch_size))
                          
                          
     classifier, res_ar = zip(*results_store)
