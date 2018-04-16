@@ -38,8 +38,8 @@ setup(
     license='LICENSE.txt',
     description='DePART - Deep Learning for Predicting Anion Exchange Chromatography Retention Times.',  # Required
     long_description=long_description,
-    install_requires=['pandas', 'biopython','pyteomics','keras',
-                      'scikit-learn','numpy', 'joblib', 'tensorflow'],
+    install_requires=['pandas', 'biopython','pyteomics',
+                      'scikit-learn','numpy', 'joblib'],
         #"Django >= 1.1.1",
         #"caldav == 0.1.4",
     project_urls={  # Optional
