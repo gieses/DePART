@@ -79,9 +79,14 @@ class FeatureGenerator():
         orig_sequences = orig_sequences.apply(PF.replace_nterm_mod)
         
         mod_dic, _ = PF.extract_modifications(orig_sequences)
+        if "C" in mod_dic:
+            print ("TRUE")
+            orig_sequences = pd.Series([i.replace(mod_dic["C"], "") for i in orig_sequences]) 
+            
         orig_sequences = orig_sequences.apply(PF.rewrite_modsequences)
         #%% do the AA count
         mods = [i[1]+i[0] for i in mod_dic.items()]  
+        #
         #print ("Found the following modifications: {}".format(mods))
         ff_df = ff_df.reset_index()
         del ff_df["index"]
@@ -268,7 +273,7 @@ def extract_nterm_mods(sequences):
     """
     """
     #matches all nterminal mods, e.g. glD or acA
-    nterm_pattern = re.compile(r'\b([a-z]+)([A-Z])')
+    nterm_pattern = re.compile(r'^([a-z]+)([A-Z])')
     mods = []
     #test each sequence for non-AA letters
     for ii, seqi in enumerate(sequences):

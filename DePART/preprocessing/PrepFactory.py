@@ -157,7 +157,8 @@ def remove_brackets(seq):
     """
     Removes all brackets (and underscores...) from protein sequences.
     """
-    return(re.sub("[\(\)\[\]_]", "", seq))
+    return(re.sub("[\(\)\[\]_\-]", "", seq))
+  
    
 #%%
 def extract_modifications(sequences, verbose=False):
@@ -184,7 +185,7 @@ def extract_modifications(sequences, verbose=False):
     sequences = np.array(sequences)
     
     #matches all nterminal mods, e.g. glD or acA
-    nterm_pattern = re.compile(r'\b([a-z]+)([A-Z])')
+    nterm_pattern = re.compile(r'^([a-z]+)([A-Z])', flags=re.MULTILINE)
     
     #test each sequence for non-AA letters
     for ii, seqi in enumerate(sequences):
@@ -193,7 +194,16 @@ def extract_modifications(sequences, verbose=False):
         if len(nterm_match) == 0:
             pass
         else:
-            all_patterns[nterm_match[0][1]] = nterm_match[0][0]
+            #we can have multiple modifications on the sme residue in different peptides
+            if nterm_match[0][1] in all_patterns:
+                #only sotre if new modifications
+                if nterm_match[0][0] in all_patterns[nterm_match[0][1]]:
+                    pass
+                else:
+                    all_patterns[nterm_match[0][1]].append(nterm_match[0][0])
+            else:
+                all_patterns[nterm_match[0][1]] = [nterm_match[0][0]]
+                
             seqi = seqi.replace(nterm_match[0][0], "")
         test_val[ii] = np.sum([1 for aai in seqi if aai not in AA_set])
     
@@ -245,6 +255,18 @@ def replace_numbers(seq):
     pattern = re.compile("|".join(rep.keys()))
     return(pattern.sub(lambda m: rep[re.escape(m.group(0))], seq))
     
+def remove_lower_letters(seq):
+    """
+    Removes lower capital letters from the sequence.
+    """
+    return(re.sub("[a-z]", "", seq))
+    
+
+def to_unmodified_sequence(seq):
+    """
+    Removes lower capital letters, brackets from the sequence.
+    """
+    return(re.sub("[^[A-Z]", "", seq))
     
 def rewrite_modsequences(seq):
     """
@@ -263,6 +285,6 @@ def replace_nterm_mod(seq):
     """
     Removes the nterminal modification.
     """
-    return(re.sub(r'\b([a-z]+)([A-Z])', r'\2', seq))
+    return(re.sub(r'^([a-z]+)([A-Z])', r'\2', seq, flags=re.MULTILINE))
     
     
