@@ -25,7 +25,7 @@ Dependencies
 
  Installation
  ----
-pip install depart
+Manual installation required.
  
 
  CLI interface
